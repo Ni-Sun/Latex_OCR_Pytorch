@@ -95,7 +95,7 @@ class formuladataset(object):
                 continue
             idx = new_size[-1]
             self.bucket_data[idx].append(i)
-        self.bucket_data = np.array(self.bucket_data)
+        # 不需要转换为numpy数组，保持为列表的列表
         print('finish bucking!')
     
     def shuffle(self):#打乱顺序
@@ -106,7 +106,8 @@ class formuladataset(object):
         np.random.shuffle(self.buckets_index)
         self.buckets = np.array(self.buckets)
         self.buckets = self.buckets[self.buckets_index]
-        self.bucket_data = self.bucket_data[self.buckets_index]
+        # 重新排序bucket_data，使用列表推导式而不是numpy索引
+        self.bucket_data = [self.bucket_data[i] for i in self.buckets_index]
         for i in self.bucket_data:
             np.random.shuffle(i)#打乱数据的顺序
         self.iter = self._iter()

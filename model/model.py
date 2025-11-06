@@ -116,7 +116,7 @@ class Encoder(nn.Module):
                 signal = signal.unsqueeze(0)
             for _ in range(num_dims - 1 - dim):  # 1, 0
                 signal = signal.unsqueeze(-2)
-            x += signal  # [1, 14, 1, 512]; [1, 1, 14, 512]
+            x = x + signal  # [1, 14, 1, 512]; [1, 1, 14, 512] - 避免原地操作
         return x
 
 class Attention(nn.Module):

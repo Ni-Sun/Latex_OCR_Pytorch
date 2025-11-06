@@ -16,7 +16,7 @@ Latex_OCR_Pytorch
 Follow these paper:
 
 1. [Show, Attend and Tell(Kelvin Xu...)](https://arxiv.org/abs/1502.03044)
-2. [Harvard's paper and dataset](http://lstm.seas.harvard.edu/latex/)
+2. [Harvard&#39;s paper and dataset](http://lstm.seas.harvard.edu/latex/)
 
 Follow these tutorial:
 
@@ -24,21 +24,22 @@ Follow these tutorial:
 2. [a PyTorch Tutorial to Image Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning).
 
 ## 环境
-1. Python >= 3.6
 
+1. Python >= 3.6
 2. Pytorch >= 1.2
 
 ## 数据
+
 使用[LinXueyuanStdio/Data-for-LaTeX_OCR](https://github.com/LinXueyuanStdio/Data-for-LaTeX_OCR) 数据集,原仓库较大,后续提供打包下载.
 
 已包括上述仓库中small数据集
-印刷体数据全集[百度云](https://pan.baidu.com/s/1xIsgHDhVu85L8cGdqqG7kw ) 提取码：tapj [Google Drive](https://drive.google.com/open?id=1THp_O7uwavcjsnQXsxx_JPvYn9-gml7T)
+印刷体数据全集[百度云](https://pan.baidu.com/s/1xIsgHDhVu85L8cGdqqG7kw) 提取码：tapj [Google Drive](https://drive.google.com/open?id=1THp_O7uwavcjsnQXsxx_JPvYn9-gml7T)
 自己划分的混合CROHME2011,2012数据集[Google Drive](https://drive.google.com/open?id=1KgpAzA7k8ayjPTstin6M8ykGsW8GR9bu)
 
-
 ## 训练模型
+
 在自己划分CROHME2011,2012数据集上使用以下参数的训练模型[Google Drive](https://drive.google.com/open?id=1_geqm9a86TJKK9RpZ39d9X5655s4NXa9)
-emb_dim = 30 
+emb_dim = 30
 attention_dim = 128
 decoder_dim = 128
 后续补充模型测试结果以及colab
@@ -56,7 +57,7 @@ python字典(符号——编号)的json储存
 数据集格式:
 
 ```
-​```shell
+```shell
 训练/验证数据集
 ├── file_name1 图片文件名 str
 │   ├── img_path:文件路径(到文件名,含后缀) str
@@ -76,7 +77,7 @@ eg:
 "2.png":...
 }
 
-​```
+```
 ```
 
 图片预处理
@@ -88,11 +89,81 @@ eg:
 3. 上下左右各padding 8个像素
 4. `[可选]`下采样
 
+## 使用说明
+
+### 数据集选择
+
+现在可以通过命令行参数来选择不同的数据集进行训练：
+
+#### 默认使用 small 数据集
+```bash
+python train.py
+```
+
+#### 使用其他数据集
+```bash
+# 使用 CROHME 数据集
+python train.py --data_name CROHME
+
+# 使用 full 数据集
+python train.py --data_name full
+
+# 使用 hand 数据集
+python train.py --data_name hand
+
+# 使用 fullhand 数据集
+python train.py --data_name fullhand
+```
+
+#### 可用的数据集选项
+- `small`: 小型数据集（默认）
+- `CROHME`: CROHME 数据集
+- `full`: 完整数据集
+- `hand`: 手写数据集
+- `fullhand`: 完整手写数据集
+
+#### 查看帮助
+```bash
+python train.py --help
+```
+
+### 配置文件说明
+
+修改后的配置文件会根据 `--data_name` 参数自动设置以下路径：
+- `vocab_path`: `./data/{data_name}/vocab.json`
+- `train_set_path` 和 `val_set_path`: 
+  - 如果存在 `train.json` 和 `val.json` 文件（如 `small` 数据集），则分别使用这些文件
+  - 如果不存在分离的文件（如 `full`, `hand`, `fullhand` 数据集），则使用 `data.json` 文件
+
+保存的模型文件名也会包含数据集名称：
+- 格式：`checkpoint_{data_name}.pth.tar`
+- 最佳模型：`BEST_checkpoint_{data_name}.pth.tar`
+
+### 数据集文件结构
+
+不同数据集的文件结构：
+
+#### small 数据集（分离文件）
+```
+data/small/
+├── vocab.json
+├── train.json
+├── val.json
+└── test.json
+```
+
+#### full, hand, fullhand 数据集（统一文件）
+```
+data/full/
+├── vocab.json
+├── data.json
+└── ...
+```
 
 ## To do
 
-- [ ]  推断部分
+- [ ] 推断部分
 - [ ] Attention层的可视化
-- [x] 预训练模型
-- [x] 打包的训练数据
+- [X] 预训练模型
+- [X] 打包的训练数据
 - [ ] perplexity指标

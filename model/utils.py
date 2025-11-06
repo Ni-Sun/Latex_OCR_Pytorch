@@ -24,7 +24,18 @@ def cal_word_freq(vocab,formuladataset):
         word_count[i] = word_count[i]/count
     return word_count
 
-def get_latex_ocrdata(path,mode = 'val'):
+def get_latex_ocrdata(path, mode='val'):
+    """
+    加载LaTeX OCR数据并生成词汇表
+    
+    Args:
+        path: 数据路径
+        mode: 模式 ('val', 'train', 'test')
+    
+    Returns:
+        vocab: 词汇表字典
+        data: 数据字典
+    """
     assert mode in ['val','train','test']
     match = []
     with open(path + 'matching/'+mode+'.matching.txt','r')as f:
@@ -61,13 +72,122 @@ def get_latex_ocrdata(path,mode = 'val'):
         # 'token':list(token),'caption':temp,'caption_len':len(temp.split())+2}#这里需要加上开始以及停止符
     vocab_temp = list(vocab_temp)
     vocab = {}
-    for i in range(len(vocab_temp)):
-        vocab[vocab_temp[i]] = i+1
-    vocab['<unk>'] = len(vocab) + 1
-    vocab['<start>'] = len(vocab) + 1
-    vocab['<end>'] = len(vocab) + 1
+    
+    # 确保索引唯一
     vocab['<pad>'] = 0
-    return vocab,data
+    vocab['<start>'] = 1
+    vocab['<end>'] = 2
+    vocab['<unk>'] = 3
+    
+    # 添加其他词汇，从4开始避免与特殊标记冲突
+    for i, token in enumerate(sorted(vocab_temp)):
+        vocab[token] = i + 4
+    
+    return vocab, data
+
+
+def generate_vocab_for_dataset(data_name):
+    """
+    为指定数据集生成完整的词汇表，合并训练集和验证集的词汇
+    
+    Args:
+        data_name: 数据集名称 (如 'small', 'full', 'hand' 等)
+    
+    Returns:
+        完整的词汇表字典
+    """
+    data_path = f'./data/{data_name}/'
+    
+    # 检查路径是否存在
+    if not os.path.exists(data_path):
+        print(f"数据路径不存在: {data_path}")
+        return None
+    
+    print(f"正在为 {data_name} 数据集生成词汇表...")
+    
+    # 生成训练集的词汇表和数据
+    try:
+        vocab_train, data_train = get_latex_ocrdata(data_path, mode='train')
+        print(f"训练集: {len(data_train)} 个样本, {len(vocab_train)} 个词汇")
+    except Exception as e:
+        print(f"处理训练集时出错: {e}")
+        return None
+    
+    # 生成验证集的数据，但合并词汇表
+    try:
+        vocab_val, data_val = get_latex_ocrdata(data_path, mode='val')
+        print(f"验证集: {len(data_val)} 个样本, {len(vocab_val)} 个词汇")
+        
+        # 合并词汇表
+        all_tokens = set(list(vocab_train.keys()) + list(vocab_val.keys()))
+        # 移除特殊标记，我们会单独处理
+        all_tokens.discard('<pad>')
+        all_tokens.discard('<unk>')
+        all_tokens.discard('<start>')
+        all_tokens.discard('<end>')
+        
+        vocab = {}
+        # 首先添加特殊标记
+        vocab['<pad>'] = 0
+        vocab['<start>'] = 1
+        vocab['<end>'] = 2
+        vocab['<unk>'] = 3
+        
+        # 然后添加其他词汇
+        for i, token in enumerate(sorted(all_tokens)):
+            vocab[token] = i + 4  # 从4开始，因为0-3被特殊标记占用
+        
+        print(f"最终词汇表大小: {len(vocab)}")
+        
+    except Exception as e:
+        print(f"处理验证集时出错: {e}")
+        # 如果验证集出错，只使用训练集的词汇表
+        vocab = vocab_train
+        data_val = {}
+    
+    # 生成测试集数据（如果存在）
+    data_test = {}
+    try:
+        vocab_test, data_test = get_latex_ocrdata(data_path, mode='test')
+        print(f"测试集: {len(data_test)} 个样本")
+    except Exception as e:
+        print(f"处理测试集时出错: {e}")
+    
+    # 保存词汇表
+    vocab_path = os.path.join(data_path, 'vocab.json')
+    with open(vocab_path, 'w', encoding='utf-8') as f:
+        json.dump(vocab, f, indent=2, ensure_ascii=False)
+    print(f"词汇表已保存到: {vocab_path}")
+    
+    # 保存数据文件
+    # 如果存在分离的训练/验证文件，分别保存
+    if os.path.exists(os.path.join(data_path, 'matching/train.matching.txt')):
+        train_path = os.path.join(data_path, 'train.json')
+        with open(train_path, 'w', encoding='utf-8') as f:
+            json.dump(data_train, f, indent=2, ensure_ascii=False)
+        print(f"训练数据已保存到: {train_path}")
+    
+    if os.path.exists(os.path.join(data_path, 'matching/val.matching.txt')):
+        val_path = os.path.join(data_path, 'val.json')
+        with open(val_path, 'w', encoding='utf-8') as f:
+            json.dump(data_val, f, indent=2, ensure_ascii=False)
+        print(f"验证数据已保存到: {val_path}")
+    
+    if data_test and os.path.exists(os.path.join(data_path, 'matching/test.matching.txt')):
+        test_path = os.path.join(data_path, 'test.json')
+        with open(test_path, 'w', encoding='utf-8') as f:
+            json.dump(data_test, f, indent=2, ensure_ascii=False)
+        print(f"测试数据已保存到: {test_path}")
+    
+    # 如果没有分离文件，保存为单个data.json
+    if not os.path.exists(os.path.join(data_path, 'train.json')):
+        all_data = {**data_train, **data_val, **data_test}
+        data_path_json = os.path.join(data_path, 'data.json')
+        with open(data_path_json, 'w', encoding='utf-8') as f:
+            json.dump(all_data, f, indent=2, ensure_ascii=False)
+        print(f"所有数据已保存到: {data_path_json}")
+    
+    return vocab
 
 
 def init_embedding(embeddings):
