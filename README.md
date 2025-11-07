@@ -160,6 +160,47 @@ data/full/
 └── ...
 ```
 
+## GitHub Actions 自动化训练
+
+本项目提供了 GitHub Actions 工作流，可以在云端自动化训练模型。
+
+### 使用方法
+
+1. 进入 GitHub 仓库的 **Actions** 标签页
+2. 选择 **"手动训练工作流"**
+3. 点击 **"Run workflow"** 按钮
+4. 在下拉菜单中选择数据集类型：
+   - `small`: 小型数据集（默认）
+   - `CROHME`: CROHME 数据集
+   - `full`: 完整数据集
+   - `hand`: 手写数据集
+   - `fullhand`: 完整手写数据集
+5. 点击绿色的 **"Run workflow"** 按钮开始训练
+
+### 功能特性
+
+- ✅ **手动触发**: 通过 GitHub Actions 界面手动启动训练
+- ✅ **数据集选择**: 支持 5 种不同的数据集类型
+- ✅ **自动上传模型**: 训练完成后自动上传模型检查点作为 artifacts
+- ✅ **超时保护**: 设置了 6 小时的超时限制，防止无限运行
+- ✅ **依赖管理**: 自动安装所需的 Python 依赖（PyTorch, OpenCV, NumPy 等）
+- ✅ **数据验证**: 训练前自动检查数据集文件是否存在
+
+### 下载训练好的模型
+
+训练完成后，可以在 Actions 运行页面的 **Artifacts** 部分下载模型检查点：
+- `checkpoint_{数据集名称}.pth.tar`: 最新的检查点
+- `BEST_checkpoint_{数据集名称}.pth.tar`: 最佳模型检查点
+
+Artifacts 保留 30 天。
+
+### 注意事项
+
+⚠️ **重要**: 使用 GitHub Actions 训练前，请确保数据集文件已经存在于仓库的 `data/{数据集名称}/` 目录中。需要的文件包括：
+- `vocab.json`: 词汇表文件
+- `train.json` 和 `val.json`: 训练和验证数据（或）
+- `data.json`: 统一的数据文件（对于某些数据集）
+
 ## To do
 
 - [ ] 推断部分
