@@ -1,0 +1,3 @@
+[submodule "data"]
+	path = data
+	url = https://github.com/Ni-Sun/Data-for-LaTeX_OCR.git
