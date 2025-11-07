@@ -1,0 +1,65 @@
+name: 手动训练工作流
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: '选择数据集类型'
+        required: true
+        type: choice
+        options:
+          - small
+          - CROHME
+          - full
+          - hand
+          - fullhand
+        default: 'small'
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6小时超时保护
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install tqdm
+      
+      - name: 创建数据目录
+        run: |
+          mkdir -p data/${{ inputs.dataset }}
+      
+      - name: 训练模型
+        run: |
+          echo "开始训练，使用数据集: ${{ inputs.dataset }}"
+          python train.py --data_name ${{ inputs.dataset }}
+        continue-on-error: true
+      
+      - name: 上传模型检查点
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: model-checkpoint-${{ inputs.dataset }}-${{ github.run_number }}
+          path: |
+            checkpoint_${{ inputs.dataset }}.pth.tar
+            BEST_checkpoint_${{ inputs.dataset }}.pth.tar
+          retention-days: 30
+          if-no-files-found: warn
+      
+      - name: 训练完成通知
+        if: success()
+        run: |
+          echo "✅ 训练成功完成！"
+          echo "数据集: ${{ inputs.dataset }}"
+          echo "运行编号: ${{ github.run_number }}"
