@@ -19,6 +19,9 @@ jobs:
   train:
     runs-on: ubuntu-latest
     timeout-minutes: 360  # 6小时超时保护
+    permissions:
+      contents: read
+      actions: read
     
     steps:
       - name: 检出代码
