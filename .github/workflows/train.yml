@@ -34,11 +34,32 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install tqdm
+          pip install tqdm opencv-python numpy
       
       - name: 创建数据目录
         run: |
           mkdir -p data/${{ inputs.dataset }}
+          echo "📁 数据目录已创建: data/${{ inputs.dataset }}"
+          echo "⚠️  注意: 训练前请确保数据集文件已存在"
+          echo "   需要的文件: vocab.json, train.json, val.json (或 data.json)"
+      
+      - name: 检查数据集文件
+        run: |
+          if [ ! -f "data/${{ inputs.dataset }}/vocab.json" ]; then
+            echo "❌ 错误: vocab.json 文件不存在"
+            echo "请先上传数据集文件到 data/${{ inputs.dataset }}/ 目录"
+            exit 1
+          fi
+          echo "✅ 找到 vocab.json 文件"
+          
+          if [ -f "data/${{ inputs.dataset }}/train.json" ] && [ -f "data/${{ inputs.dataset }}/val.json" ]; then
+            echo "✅ 找到 train.json 和 val.json 文件"
+          elif [ -f "data/${{ inputs.dataset }}/data.json" ]; then
+            echo "✅ 找到 data.json 文件"
+          else
+            echo "❌ 错误: 未找到训练数据文件 (train.json/val.json 或 data.json)"
+            exit 1
+          fi
       
       - name: 训练模型
         run: |
