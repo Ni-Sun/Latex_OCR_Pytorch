@@ -122,3 +122,4 @@ best_score = 0.  # 目前最好的 score
 print_freq = 100  # 状态的批次打印间隔
 checkpoint = args.checkpoint  # checkpoint文件目录(用于断点继续训练)
 save_freq = 2 #保存的间隔
+keep_checkpoints = 5  # 保留最近N个checkpoint（不包括best checkpoint）

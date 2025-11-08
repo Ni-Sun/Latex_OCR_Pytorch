@@ -29,7 +29,7 @@ def main():
     Training and validation.
     """
 
-    global best_score, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map
+    global best_score, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map, keep_checkpoints
 
     # 检查是否使用HuggingFace数据集并且数据不存在，则先加载数据集
     if use_huggingface:
@@ -160,7 +160,8 @@ def main():
             if epoch % save_freq == 0:
                 print('Saveing...')
                 save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder,encoder_optimizer,
-                            decoder_optimizer, recent_score, is_best)
+                            decoder_optimizer, recent_score, is_best, use_huggingface=use_huggingface, 
+                            vocab_size=len(word_map), keep_checkpoints=keep_checkpoints)
         print('--------------------------------------------------------------------------')
 
 

@@ -476,9 +476,11 @@ def clip_gradient(optimizer, grad_clip):
 
  
 def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
-    decoder_optimizer, score, is_best, use_huggingface=False, vocab_size=None):
+    decoder_optimizer, score, is_best, use_huggingface=False, vocab_size=None, keep_checkpoints=5):
     """
-    Saves model checkpoint.
+    Saves model checkpoint and automatically removes old checkpoints to save disk space.
+    Keeps the last N checkpoints + 1 best checkpoint separately.
+    
     :param data_name: base name of processed dataset
     :param epoch: epoch number
     :param epochs_since_improvement: number of epochs since last improvement in BLEU-4 score
@@ -490,6 +492,7 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     :param is_best: is this checkpoint the best so far?
     :param use_huggingface: whether using HuggingFace dataset
     :param vocab_size: vocabulary size (for validation when loading checkpoint)
+    :param keep_checkpoints: number of recent checkpoints to keep (default: 5)
     """
     # 创建checkpoints文件夹
     checkpoint_dir = 'checkpoints'
@@ -509,12 +512,46 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
              'use_huggingface': use_huggingface,
              'vocab_size': vocab_size}
     
-    filename = os.path.join(checkpoint_dir, f'checkpoint_{source_prefix}_{data_name}.pth.tar')
+    # 保存当前checkpoint（带epoch信息）
+    filename = os.path.join(checkpoint_dir, f'checkpoint_{source_prefix}_{data_name}_epoch{epoch}.pth.tar')
     torch.save(state, filename)
-    # If this checkpoint is the best so far, store a copy so it doesn't get overwritten by a worse checkpoint
+    print(f"Checkpoint saved: {filename}")
+    
+    # 如果是最佳checkpoint，单独保存
     if is_best:
         best_filename = os.path.join(checkpoint_dir, f'BEST_checkpoint_{source_prefix}_{data_name}.pth.tar')
         torch.save(state, best_filename)
+        print(f"Best checkpoint saved: {best_filename}")
+    
+    # 删除旧的checkpoint，只保留最近的N个
+    _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_checkpoints)
+
+
+def _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_checkpoints):
+    """
+    删除旧的checkpoint文件，只保留最近的N个（不删除BEST checkpoint）
+    
+    :param checkpoint_dir: checkpoint目录
+    :param source_prefix: 数据源前缀 ('hf' 或 'local')
+    :param data_name: 数据集名称
+    :param keep_checkpoints: 保留的checkpoint数量
+    """
+    import glob
+    
+    # 查找所有当前数据集对应的checkpoint文件（不包括BEST）
+    pattern = os.path.join(checkpoint_dir, f'checkpoint_{source_prefix}_{data_name}_epoch*.pth.tar')
+    checkpoints = sorted(glob.glob(pattern))
+    
+    # 如果checkpoint数量超过限制，删除最旧的
+    if len(checkpoints) > keep_checkpoints:
+        num_to_delete = len(checkpoints) - keep_checkpoints
+        for i in range(num_to_delete):
+            old_checkpoint = checkpoints[i]
+            try:
+                os.remove(old_checkpoint)
+                print(f"Removed old checkpoint: {old_checkpoint}")
+            except Exception as e:
+                print(f"Failed to remove checkpoint {old_checkpoint}: {e}")
 
 
 class AverageMeter(object):
