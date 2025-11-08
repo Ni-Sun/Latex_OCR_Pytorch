@@ -260,13 +260,16 @@ class DecoderWithAttention(nn.Module):
             #     torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
             #     (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
             #teahcer forcing
-            if t==1 or (np.random.rand() < self.p) :
+            if t==0 or (np.random.rand() < self.p) :
                 h = self.decode_step(
                     torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
                     h[:batch_size_t])  # (batch_size_t, decoder_dim)
             else:
+                # 使用前一个预测结果，但要确保索引有效
+                prev_pred_idx = torch.argmax(predictions[:batch_size_t, t-1, :], dim=1)
+                prev_pred_idx = torch.clamp(prev_pred_idx, max=vocab_size-1)  # 确保索引不超出范围
                 h = self.decode_step(
-                    torch.cat([self.embedding(torch.argmax(predictions[:batch_size_t, t, :],dim = 1)), attention_weighted_encoding], dim=1),
+                    torch.cat([self.embedding(prev_pred_idx), attention_weighted_encoding], dim=1),
                     h[:batch_size_t])  # (batch_size_t, decoder_dim)
             preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
             predictions[:batch_size_t, t, :] = preds

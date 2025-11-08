@@ -7,7 +7,15 @@ from config import vocab_path,buckets
 from torch.utils.data import Dataset
 from model.utils import load_json
 
-vocab = load_json(vocab_path)
+# 延迟加载词汇表，避免模块导入时出错
+vocab = None
+
+def get_vocab():
+    """延迟加载词汇表，只在需要时加载"""
+    global vocab
+    if vocab is None:
+        vocab = load_json(vocab_path)
+    return vocab
 
 def get_new_size(old_size, buckets=buckets,ratio = 2):
     """Computes new size from buckets
@@ -52,11 +60,14 @@ def data_turn(img_data,pad_size = [8,8,8,8],resize = False):
 
 
 def label_transform(text,start_type = '<start>',end_type = '<end>',pad_type = '<pad>',max_len = 160):
+    vocab = get_vocab()
     text = text.split()
     text = [start_type] + text + [end_type]
     # while len(text)<max_len:
     #     text += [pad_type]
-    text = [i for i in map(lambda x:vocab[x],text)]
+    
+    # 处理词汇表中不存在的token，使用<unk>标记
+    text = [vocab.get(x, vocab['<unk>']) for x in text]
     return text
     # return torch.LongTensor(text)
 
@@ -116,6 +127,7 @@ class formuladataset(object):
         for size_idx,i in enumerate(self.bucket_data):
             img_batch,cap_batch,cap_len_batch = [],[],torch.zeros((self.batch_size)).int()
             idx = 0
+            vocab = get_vocab()
             for j in i:
                 item = self.data[j]
                 caption = item['caption']

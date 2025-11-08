@@ -1,7 +1,15 @@
-data/
+data/ - commented out to allow submodule
 data/full
-/data/CROHME
-/other
+data/fullhand
+data/hand
+data/CROHME
+
+cache/
+
+# debug工具文件目录
+debug/
+
+other
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -135,4 +143,7 @@ dmypy.json
 # train result
 *.tar
 *.zip
+
+test_vocab_generation.py
+vocab_usage_example.py
 

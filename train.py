@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 import time
 from config import *
+import os
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
@@ -29,6 +31,17 @@ def main():
 
     global best_score, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map
 
+    # 检查是否使用HuggingFace数据集并且数据不存在，则先加载数据集
+    if use_huggingface:
+        if not os.path.exists(vocab_path):
+            print("检测到使用HuggingFace数据集，正在下载和预处理数据...")
+            from model.utils import load_huggingface_dataset
+            vocab, train_data, val_data = load_huggingface_dataset(hf_repo, data_name)
+            if vocab is None:
+                print("数据集加载失败，请检查网络连接和数据集名称")
+                return
+            print("数据集下载和预处理完成！")
+
     # 字典文件
     word_map = load_json(vocab_path)
 
@@ -47,7 +60,7 @@ def main():
                                              lr=encoder_lr)
 
     else:
-        checkpoint = torch.load(checkpoint)
+        checkpoint = torch.load(checkpoint, weights_only=False)
         start_epoch = checkpoint['epoch'] + 1
         epochs_since_improvement = checkpoint['epochs_since_improvement']
         best_score = checkpoint['score']
@@ -55,6 +68,25 @@ def main():
         encoder_optimizer = checkpoint['encoder_optimizer']
         decoder_optimizer = checkpoint['decoder_optimizer']
         encoder = checkpoint['encoder']
+        
+        # 验证 checkpoint 中的数据源和词汇表是否匹配
+        checkpoint_use_hf = checkpoint.get('use_huggingface', None)
+        checkpoint_vocab_size = checkpoint.get('vocab_size', None)
+        
+        # 检查数据源是否一致
+        if checkpoint_use_hf is not None and checkpoint_use_hf != use_huggingface:
+            print(f"\n[警告] Checkpoint 与当前数据源不匹配!")
+            print(f"  Checkpoint 数据源: {'HuggingFace' if checkpoint_use_hf else '本地'}")
+            print(f"  当前数据源: {'HuggingFace' if use_huggingface else '本地'}")
+            print(f"  建议使用匹配的数据源重新加载 checkpoint\n")
+        
+        # 检查词汇表大小是否一致
+        if checkpoint_vocab_size is not None and checkpoint_vocab_size != len(word_map):
+            print(f"\n[错误] Checkpoint 词汇表大小不匹配!")
+            print(f"  Checkpoint 词汇表大小: {checkpoint_vocab_size}")
+            print(f"  当前词汇表大小: {len(word_map)}")
+            print(f"  请使用相同数据源的词汇表或重新生成模型\n")
+            raise ValueError("Checkpoint 词汇表大小不匹配，无法继续训练")
         # encoder_optimizer = checkpoint['encoder_optimizer']
         # encoder_optimizer = None
         # if fine_tune_encoder is True and encoder_optimizer is None:
