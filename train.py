@@ -145,11 +145,13 @@ def main():
                                 encoder=encoder,
                                 decoder=decoder,
                                 criterion=criterion)
+        
+        # Check if there was an improvement（总是检查改进，不依赖于p值）
+        is_best = recent_score > best_score
+        best_score = max(recent_score, best_score)
+        
         if (p==0):
             print('Stop teacher forcing!')
-            # Check if there was an improvement
-            is_best = recent_score > best_score
-            best_score = max(recent_score, best_score)
             if not is_best:
                 epochs_since_improvement += 1
                 print("\nEpochs since last improvement: %d\n" % (epochs_since_improvement,))
@@ -157,11 +159,18 @@ def main():
                 print('New Best Score!(%d)'%(best_score,))
                 epochs_since_improvement = 0
 
-            if epoch % save_freq == 0:
-                print('Saveing...')
-                save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder,encoder_optimizer,
-                            decoder_optimizer, recent_score, is_best, use_huggingface=use_huggingface, 
-                            vocab_size=len(word_map), keep_checkpoints=keep_checkpoints)
+        # 保存checkpoint的逻辑：
+        # 1. 如果是最佳checkpoint，总是保存
+        # 2. 或者每save_freq个epoch保存一次定期checkpoint
+        # 3. 当停止teacher forcing后，每save_freq个epoch保存一次
+        should_save = is_best or (epoch % save_freq == 0)
+        
+        if should_save:
+            print('Saveing...')
+            save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder,encoder_optimizer,
+                        decoder_optimizer, recent_score, is_best, use_huggingface=use_huggingface, 
+                        vocab_size=len(word_map), keep_checkpoints=keep_checkpoints)
+        
         print('--------------------------------------------------------------------------')
 
 

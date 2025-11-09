@@ -4,10 +4,14 @@ data/fullhand
 data/hand
 data/CROHME
 
+# huggingface下载的数据目录
 cache/
 
 # debug工具文件目录
 debug/
+
+# logs
+*log*.txt
 
 other
 # Byte-compiled / optimized / DLL files

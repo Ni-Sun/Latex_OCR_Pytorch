@@ -537,21 +537,31 @@ def _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_chec
     :param keep_checkpoints: 保留的checkpoint数量
     """
     import glob
+    import re
     
     # 查找所有当前数据集对应的checkpoint文件（不包括BEST）
     pattern = os.path.join(checkpoint_dir, f'checkpoint_{source_prefix}_{data_name}_epoch*.pth.tar')
-    checkpoints = sorted(glob.glob(pattern))
+    checkpoints = glob.glob(pattern)
+    
+    if len(checkpoints) <= keep_checkpoints:
+        return
+    
+    # 按epoch号排序（提取数字排序，而不是字典序）
+    def extract_epoch_num(filepath):
+        match = re.search(r'epoch(\d+)', filepath)
+        return int(match.group(1)) if match else 0
+    
+    checkpoints_sorted = sorted(checkpoints, key=extract_epoch_num)
     
     # 如果checkpoint数量超过限制，删除最旧的
-    if len(checkpoints) > keep_checkpoints:
-        num_to_delete = len(checkpoints) - keep_checkpoints
-        for i in range(num_to_delete):
-            old_checkpoint = checkpoints[i]
-            try:
-                os.remove(old_checkpoint)
-                print(f"Removed old checkpoint: {old_checkpoint}")
-            except Exception as e:
-                print(f"Failed to remove checkpoint {old_checkpoint}: {e}")
+    num_to_delete = len(checkpoints_sorted) - keep_checkpoints
+    for i in range(num_to_delete):
+        old_checkpoint = checkpoints_sorted[i]
+        try:
+            os.remove(old_checkpoint)
+            print(f"Removed old checkpoint: {old_checkpoint}")
+        except Exception as e:
+            print(f"Failed to remove checkpoint {old_checkpoint}: {e}")
 
 
 class AverageMeter(object):

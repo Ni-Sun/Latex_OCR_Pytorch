@@ -17,7 +17,7 @@ def parse_args():
     
     # 3. 使用本地数据集  
     python train.py --data_name small --no_huggingface
-    python train.py --data_name CROHME --no_huggingface
+    python train.py --data_name local_data_name --no_huggingface
     
     # 4. 从checkpoint恢复训练
     python train.py --data_name small --checkpoint checkpoints/BEST_checkpoint_local_small.pth.tar
@@ -31,7 +31,7 @@ def parse_args():
     '''
     parser = argparse.ArgumentParser(description='LaTeX OCR Training Configuration')
     parser.add_argument('--data_name', type=str, default='small', 
-                       choices=['small', 'full', 'synthetic_handwrite', 'human_handwrite', 'human_handwrite_print', 'CROHME', 'hand', 'fullhand'],
+                       choices=['small', 'full', 'synthetic_handwrite', 'human_handwrite', 'human_handwrite_print'],
                        help='Dataset name to use (default: small)')
     parser.add_argument('--use_huggingface', action='store_true', default=False,
                        help='Use Hugging Face dataset instead of local data')
