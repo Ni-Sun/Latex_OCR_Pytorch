@@ -6,6 +6,6 @@ pillow
 matplotlib
 scikit-image
 nltk
-distance
+editdistance
 tqdm
 datasets>=2.0

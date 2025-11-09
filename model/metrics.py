@@ -1,5 +1,5 @@
 import numpy as np
-import distance
+import editdistance
 from nltk.translate.bleu_score import sentence_bleu
 
 def evaluate(losses, top5accs, references, hypotheses):
@@ -55,7 +55,7 @@ def edit_distance(references, hypotheses):
     """
     d_leven, len_tot = 0, 0
     for ref, hypo in zip(references, hypotheses):
-        d_leven += distance.levenshtein(ref, hypo)
+        d_leven += editdistance.eval(ref, hypo)
         len_tot += float(max(len(ref), len(hypo)))
 
     return 1. - d_leven / len_tot
