@@ -7,6 +7,43 @@ from datasets import load_dataset
 import tempfile
 import urllib.request
 from PIL import Image
+import logging
+import sys
+
+def setup_logger(log_file='training.log'):
+    """
+    设置日志记录器，同时输出到控制台和文件
+    用于Kaggle环境保存训练日志
+    
+    :param log_file: 日志文件路径
+    :return: logger对象
+    """
+    # 创建logger
+    logger = logging.getLogger('latex_ocr_training')
+    logger.setLevel(logging.INFO)
+    
+    # 避免重复添加handler
+    if logger.handlers:
+        return logger
+    
+    # 创建文件handler
+    fh = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+    fh.setLevel(logging.INFO)
+    
+    # 创建控制台handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
+    
+    # 创建formatter
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    
+    # 添加handler到logger
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+    
+    return logger
 
 def load_json(path):
     with open(path,'r')as f:
@@ -480,6 +517,7 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     """
     Saves model checkpoint and automatically removes old checkpoints to save disk space.
     Keeps the last N checkpoints + 1 best checkpoint separately.
+    Also creates a tarball of the checkpoints directory after saving.
     
     :param data_name: base name of processed dataset
     :param epoch: epoch number
@@ -525,6 +563,9 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     
     # 删除旧的checkpoint，只保留最近的N个
     _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_checkpoints)
+    
+    # 自动打包checkpoints文件夹
+    _create_checkpoint_tarball(checkpoint_dir)
 
 
 def _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_checkpoints):
@@ -562,6 +603,37 @@ def _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_chec
             print(f"Removed old checkpoint: {old_checkpoint}")
         except Exception as e:
             print(f"Failed to remove checkpoint {old_checkpoint}: {e}")
+
+
+def _create_checkpoint_tarball(checkpoint_dir):
+    """
+    创建checkpoints目录的压缩包，用于Kaggle环境下保存训练结果
+    
+    :param checkpoint_dir: checkpoint目录
+    """
+    import tarfile
+    import time
+    
+    try:
+        # 生成带时间戳的tarball文件名，避免被覆盖
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        tarball_name = f'checkpoints_{timestamp}.tar.gz'
+        
+        # 创建压缩包
+        with tarfile.open(tarball_name, 'w:gz') as tar:
+            tar.add(checkpoint_dir, arcname=os.path.basename(checkpoint_dir))
+        
+        print(f"Checkpoints packed successfully: {tarball_name}")
+        
+        # 同时创建一个最新的压缩包（固定名称，方便下载）
+        latest_tarball = 'checkpoints.tar.gz'
+        with tarfile.open(latest_tarball, 'w:gz') as tar:
+            tar.add(checkpoint_dir, arcname=os.path.basename(checkpoint_dir))
+        
+        print(f"Latest checkpoints pack updated: {latest_tarball}")
+        
+    except Exception as e:
+        print(f"Warning: Failed to create checkpoint tarball: {e}")
 
 
 class AverageMeter(object):

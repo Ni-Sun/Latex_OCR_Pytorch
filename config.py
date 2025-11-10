@@ -41,6 +41,8 @@ def parse_args():
                        help='Hugging Face repository name (default: linxy/LaTeX_OCR)')
     parser.add_argument('--checkpoint', type=str, default=None,
                        help='Path to checkpoint file for resuming training (default: None)')
+    parser.add_argument('--max_epochs', type=int, default=None,
+                       help='Maximum number of epochs to train in this run (for incremental training on Kaggle)')
     
     # 如果在交互式环境中运行或没有命令行参数，使用默认值
     if hasattr(sys, 'ps1') or not sys.argv[1:]:
@@ -123,3 +125,4 @@ print_freq = 100  # 状态的批次打印间隔
 checkpoint = args.checkpoint  # checkpoint文件目录(用于断点继续训练)
 save_freq = 2 #保存的间隔
 keep_checkpoints = 5  # 保留最近N个checkpoint（不包括best checkpoint）
+max_epochs_per_run = args.max_epochs  # 单次运行的最大epoch数（用于Kaggle增量训练）
