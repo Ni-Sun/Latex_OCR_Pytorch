@@ -23,6 +23,9 @@ model.device = device
 '''
 cudnn.benchmark = True
 
+# 初始化日志记录器
+logger = setup_logger('training.log')
+
 
 def main():
     """
@@ -31,16 +34,24 @@ def main():
 
     global best_score, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map, keep_checkpoints
 
+    logger.info("="*80)
+    logger.info("Starting training session")
+    logger.info(f"Data name: {data_name}")
+    logger.info(f"Use HuggingFace: {use_huggingface}")
+    logger.info(f"Checkpoint: {checkpoint}")
+    logger.info(f"Max epochs per run: {max_epochs_per_run if max_epochs_per_run else 'unlimited'}")
+    logger.info("="*80)
+
     # 检查是否使用HuggingFace数据集并且数据不存在，则先加载数据集
     if use_huggingface:
         if not os.path.exists(vocab_path):
-            print("检测到使用HuggingFace数据集，正在下载和预处理数据...")
+            logger.info("检测到使用HuggingFace数据集，正在下载和预处理数据...")
             from model.utils import load_huggingface_dataset
             vocab, train_data, val_data = load_huggingface_dataset(hf_repo, data_name)
             if vocab is None:
-                print("数据集加载失败，请检查网络连接和数据集名称")
+                logger.error("数据集加载失败，请检查网络连接和数据集名称")
                 return
-            print("数据集下载和预处理完成！")
+            logger.info("数据集下载和预处理完成！")
 
     # 字典文件
     word_map = load_json(vocab_path)
@@ -69,23 +80,27 @@ def main():
         decoder_optimizer = checkpoint['decoder_optimizer']
         encoder = checkpoint['encoder']
         
+        logger.info(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
+        logger.info(f"Best score so far: {best_score}")
+        logger.info(f"Epochs since improvement: {epochs_since_improvement}")
+        
         # 验证 checkpoint 中的数据源和词汇表是否匹配
         checkpoint_use_hf = checkpoint.get('use_huggingface', None)
         checkpoint_vocab_size = checkpoint.get('vocab_size', None)
         
         # 检查数据源是否一致
         if checkpoint_use_hf is not None and checkpoint_use_hf != use_huggingface:
-            print(f"\n[警告] Checkpoint 与当前数据源不匹配!")
-            print(f"  Checkpoint 数据源: {'HuggingFace' if checkpoint_use_hf else '本地'}")
-            print(f"  当前数据源: {'HuggingFace' if use_huggingface else '本地'}")
-            print(f"  建议使用匹配的数据源重新加载 checkpoint\n")
+            logger.warning(f"Checkpoint 与当前数据源不匹配!")
+            logger.warning(f"  Checkpoint 数据源: {'HuggingFace' if checkpoint_use_hf else '本地'}")
+            logger.warning(f"  当前数据源: {'HuggingFace' if use_huggingface else '本地'}")
+            logger.warning(f"  建议使用匹配的数据源重新加载 checkpoint")
         
         # 检查词汇表大小是否一致
         if checkpoint_vocab_size is not None and checkpoint_vocab_size != len(word_map):
-            print(f"\n[错误] Checkpoint 词汇表大小不匹配!")
-            print(f"  Checkpoint 词汇表大小: {checkpoint_vocab_size}")
-            print(f"  当前词汇表大小: {len(word_map)}")
-            print(f"  请使用相同数据源的词汇表或重新生成模型\n")
+            logger.error(f"Checkpoint 词汇表大小不匹配!")
+            logger.error(f"  Checkpoint 词汇表大小: {checkpoint_vocab_size}")
+            logger.error(f"  当前词汇表大小: {len(word_map)}")
+            logger.error(f"  请使用相同数据源的词汇表或重新生成模型")
             raise ValueError("Checkpoint 词汇表大小不匹配，无法继续训练")
         # encoder_optimizer = checkpoint['encoder_optimizer']
         # encoder_optimizer = None
@@ -109,8 +124,17 @@ def main():
     # words_freq = cal_word_freq(word_map,val_loader)
     # print(words_freq)
     p = 1#teacher forcing概率
+    
+    # 计算本次运行的结束epoch
+    if max_epochs_per_run is not None:
+        end_epoch = start_epoch + max_epochs_per_run
+        logger.info(f"Training from epoch {start_epoch} to {end_epoch-1} (max_epochs_per_run={max_epochs_per_run})")
+    else:
+        end_epoch = epochs
+        logger.info(f"Training from epoch {start_epoch} to {end_epoch-1}")
+    
     # Epochs
-    for epoch in range(start_epoch, epochs):
+    for epoch in range(start_epoch, min(end_epoch, epochs)):
         train_loader.shuffle()
         val_loader.shuffle()
         #每2个epoch衰减一次teahcer forcing的概率
@@ -119,10 +143,11 @@ def main():
                 p *= 0.75
         else:
             p = 0
-        print('start epoch:%u'%epoch,'p:%.2f'%p)
+        logger.info(f'Start epoch: {epoch}, teacher forcing p: {p:.2f}')
 
         # 如果迭代4次后没有改善,则对学习率进行衰减,如果迭代20次都没有改善则触发早停.直到最大迭代次数
         if epochs_since_improvement == 30:
+            logger.info("Early stopping triggered: 30 epochs without improvement")
             break
         if epochs_since_improvement > 0 and epochs_since_improvement % 2 == 0:
             adjust_learning_rate(decoder_optimizer, 0.7)
@@ -151,12 +176,12 @@ def main():
         best_score = max(recent_score, best_score)
         
         if (p==0):
-            print('Stop teacher forcing!')
+            logger.info('Teacher forcing stopped!')
             if not is_best:
                 epochs_since_improvement += 1
-                print("\nEpochs since last improvement: %d\n" % (epochs_since_improvement,))
+                logger.info(f"Epochs since last improvement: {epochs_since_improvement}")
             else:
-                print('New Best Score!(%d)'%(best_score,))
+                logger.info(f'New Best Score! ({best_score})')
                 epochs_since_improvement = 0
 
         # 保存checkpoint的逻辑：
@@ -166,12 +191,17 @@ def main():
         should_save = is_best or (epoch % save_freq == 0)
         
         if should_save:
-            print('Saveing...')
+            logger.info('Saving checkpoint...')
             save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder,encoder_optimizer,
                         decoder_optimizer, recent_score, is_best, use_huggingface=use_huggingface, 
                         vocab_size=len(word_map), keep_checkpoints=keep_checkpoints)
         
-        print('--------------------------------------------------------------------------')
+        logger.info('--------------------------------------------------------------------------')
+    
+    logger.info("="*80)
+    logger.info(f"Training session completed at epoch {epoch}")
+    logger.info(f"Best score achieved: {best_score}")
+    logger.info("="*80)
 
 
 def train(train_loader, encoder, decoder, criterion, encoder_optimizer,decoder_optimizer, epoch, p):
@@ -260,13 +290,15 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer,decoder_o
 
         # Print status
         if i % print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+            msg = 'Epoch: [{0}][{1}/{2}]\t' \
+                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' \
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t' \
                   'Top-3 Accuracy {top3.val:.3f} ({top3.avg:.3f})'.format(epoch, i, len(train_loader),
                                                                           batch_time=batch_time,
                                                                           loss=losses,
-                                                                          top3=top3accs))
+                                                                          top3=top3accs)
+            print(msg)
+            logger.info(msg)
         # if i % save_freq == 0:
         #     save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder,encoder_optimizer,
         #                 decoder_optimizer, 0,0)
@@ -337,11 +369,13 @@ def validate(val_loader, encoder, decoder, criterion):
             start = time.time()
 
             if i % print_freq == 0:
-                print('Validation: [{0}/{1}],'
-                      'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f}),'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f}),'
+                msg = 'Validation: [{0}/{1}],' \
+                      'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f}),' \
+                      'Loss {loss.val:.4f} ({loss.avg:.4f}),' \
                       'Top-3 Accuracy {top3.val:.3f} ({top3.avg:.3f}),'.format(i, len(val_loader), batch_time=batch_time,
-                                                                                loss=losses, top3=top3accs))
+                                                                                loss=losses, top3=top3accs)
+                print(msg)
+                logger.info(msg)
 
             # Store references (true captions), and hypothesis (prediction) for each image
             # If for n images, we have n hypotheses, and references a, b, c... for each image, we need -
