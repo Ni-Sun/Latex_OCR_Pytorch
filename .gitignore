@@ -11,7 +11,12 @@ cache/
 debug/
 
 # logs
+log/
 *log*.txt
+
+# checkpoint
+checkpoints/
+checkpoints.tar.gz
 
 other
 # Byte-compiled / optimized / DLL files

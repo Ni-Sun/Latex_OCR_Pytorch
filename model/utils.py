@@ -10,14 +10,22 @@ from PIL import Image
 import logging
 import sys
 
-def setup_logger(log_file='training.log'):
+def setup_logger(log_dir='./log'):
     """
     设置日志记录器，同时输出到控制台和文件
     用于Kaggle环境保存训练日志
     
-    :param log_file: 日志文件路径
+    :param log_dir: 日志保存目录（默认为 ./log）
     :return: logger对象
     """
+    # 创建日志目录
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # 生成带时间戳的日志文件名
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = os.path.join(log_dir, f'training_{timestamp}.log')
+    
     # 创建logger
     logger = logging.getLogger('latex_ocr_training')
     logger.setLevel(logging.INFO)
@@ -27,7 +35,7 @@ def setup_logger(log_file='training.log'):
         return logger
     
     # 创建文件handler
-    fh = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+    fh = logging.FileHandler(log_file, mode='w', encoding='utf-8')
     fh.setLevel(logging.INFO)
     
     # 创建控制台handler
@@ -516,7 +524,7 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     decoder_optimizer, score, is_best, use_huggingface=False, vocab_size=None, keep_checkpoints=5):
     """
     Saves model checkpoint and automatically removes old checkpoints to save disk space.
-    Keeps the last N checkpoints + 1 best checkpoint separately.
+    Keeps only the best checkpoint + recent N regular checkpoints.
     Also creates a tarball of the checkpoints directory after saving.
     
     :param data_name: base name of processed dataset
@@ -530,7 +538,7 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     :param is_best: is this checkpoint the best so far?
     :param use_huggingface: whether using HuggingFace dataset
     :param vocab_size: vocabulary size (for validation when loading checkpoint)
-    :param keep_checkpoints: number of recent checkpoints to keep (default: 5)
+    :param keep_checkpoints: number of recent checkpoints to keep (default: 5, not including BEST)
     """
     # 创建checkpoints文件夹
     checkpoint_dir = 'checkpoints'
@@ -555,13 +563,13 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     torch.save(state, filename)
     print(f"Checkpoint saved: {filename}")
     
-    # 如果是最佳checkpoint，单独保存
+    # 如果是最佳checkpoint，单独保存（会覆盖之前的BEST）
     if is_best:
         best_filename = os.path.join(checkpoint_dir, f'BEST_checkpoint_{source_prefix}_{data_name}.pth.tar')
         torch.save(state, best_filename)
-        print(f"Best checkpoint saved: {best_filename}")
+        print(f"✓ New Best checkpoint saved: {best_filename}")
     
-    # 删除旧的checkpoint，只保留最近的N个
+    # 删除旧的checkpoint，只保留最近的N个（不删除BEST checkpoint）
     _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_checkpoints)
     
     # 自动打包checkpoints文件夹
@@ -607,33 +615,28 @@ def _cleanup_old_checkpoints(checkpoint_dir, source_prefix, data_name, keep_chec
 
 def _create_checkpoint_tarball(checkpoint_dir):
     """
-    创建checkpoints目录的压缩包，用于Kaggle环境下保存训练结果
+    创建checkpoints目录的压缩包
+    只保留最新的 tarball，避免重复打包浪费空间
     
     :param checkpoint_dir: checkpoint目录
     """
     import tarfile
     import time
+    import glob
     
     try:
-        # 生成带时间戳的tarball文件名，避免被覆盖
-        timestamp = time.strftime('%Y%m%d_%H%M%S')
-        tarball_name = f'checkpoints_{timestamp}.tar.gz'
-        
-        # 创建压缩包
-        with tarfile.open(tarball_name, 'w:gz') as tar:
-            tar.add(checkpoint_dir, arcname=os.path.basename(checkpoint_dir))
-        
-        print(f"Checkpoints packed successfully: {tarball_name}")
-        
-        # 同时创建一个最新的压缩包（固定名称，方便下载）
+        # 最终的固定名称（固定名称，方便下载）
         latest_tarball = 'checkpoints.tar.gz'
+        
+        # 创建压缩包（覆盖之前的版本）
         with tarfile.open(latest_tarball, 'w:gz') as tar:
             tar.add(checkpoint_dir, arcname=os.path.basename(checkpoint_dir))
         
-        print(f"Latest checkpoints pack updated: {latest_tarball}")
+        tarball_size = os.path.getsize(latest_tarball) / (1024**2)  # 转换为MB
+        print(f"✓ Checkpoints packed: {latest_tarball} ({tarball_size:.1f}MB)")
         
     except Exception as e:
-        print(f"Warning: Failed to create checkpoint tarball: {e}")
+        print(f"⚠ Warning: Failed to create checkpoint tarball: {e}")
 
 
 class AverageMeter(object):

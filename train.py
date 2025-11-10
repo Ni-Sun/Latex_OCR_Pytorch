@@ -23,8 +23,8 @@ model.device = device
 '''
 cudnn.benchmark = True
 
-# 初始化日志记录器
-logger = setup_logger('training.log')
+# 初始化日志记录器（日志将保存到 ./log 目录，带时间戳的文件名）
+logger = setup_logger('./log')
 
 
 def main():

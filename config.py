@@ -12,8 +12,11 @@ def parse_args():
     
     # 2. 明确使用HuggingFace数据集
     python train.py --data_name small --use_huggingface
-    python train.py --data_name full --use_huggingface
-    python train.py --data_name synthetic_handwrite --use_huggingface
+    small 是小数据集，样本数 110 条，用于测试
+    full 是印刷体约 100k 的完整数据集。实际上样本数略小于 100k，因为用 LaTeX 的抽象语法树剔除了很多不能渲染的 LaTeX。
+    synthetic_handwrite 是手写体 100k 的完整数据集，基于 full 的公式，使用手写字体合成而来，可以视为人类在纸上的手写体。样本数实际上略小于 100k，理由同上。
+    human_handwrite 是手写体较小数据集，更符合人类在电子屏上的手写体。主要来源于 CROHME。我们用 LaTeX 的抽象语法树校验过了。
+    human_handwrite_print 是来自 human_handwrite 的印刷体数据集，公式部分和 human_handwrite 相同，图片部分由公式用 LaTeX 渲染而来。
     
     # 3. 使用本地数据集  
     python train.py --data_name small --no_huggingface
