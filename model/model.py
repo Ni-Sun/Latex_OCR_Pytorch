@@ -3,8 +3,8 @@ import torch
 import math
 from torch import nn
 import torch.nn.functional as F
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+# device 会由 train.py 在运行时动态设置
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -102,13 +102,13 @@ class Encoder(nn.Module):
             math.log(float(max_timescale) / float(min_timescale)) /
             (float(num_timescales) - 1))
         inv_timescales = min_timescale * torch.exp(
-            torch.FloatTensor([i for i in range(num_timescales)]) * -log_timescale_increment)  # len == 128
+            torch.FloatTensor([i for i in range(num_timescales)]) * -log_timescale_increment).to(x.device)  # len == 128
         for dim in range(num_dims):  # dim == 0; 1
             length = x.shape[dim + 1]  # 要跳过前两个维度
-            position = torch.arange(length).float()  # len == 50
+            position = torch.arange(length, device=x.device).float()  # len == 50
             scaled_time = torch.reshape(position,(-1,1)) * torch.reshape(inv_timescales,(1,-1))
             #[50,1] x [1,128] = [50,128]
-            signal = torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], axis=1).to(device)  # [50, 256]
+            signal = torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], axis=1)  # [50, 256]
             prepad = dim * 2 * num_timescales  # 0; 256
             postpad = channels - (dim + 1) * 2 * num_timescales  # 512-(1;2)*2*128 = 256; 0
             signal = F.pad(signal, (prepad,postpad,0,0))  # [50, 512]
@@ -176,7 +176,7 @@ class DecoderWithAttention(nn.Module):
         self.vocab_size = vocab_size
         self.dropout = dropout
 
-        self.attention = Attention(encoder_dim, decoder_dim, attention_dim).to(device)  # attention network
+        self.attention = Attention(encoder_dim, decoder_dim, attention_dim)  # attention network
 
         self.embedding = nn.Embedding(vocab_size, embed_dim)  # embedding layer
         self.dropout = nn.Dropout(p=self.dropout)
