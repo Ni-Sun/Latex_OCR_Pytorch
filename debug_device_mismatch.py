@@ -33,14 +33,15 @@ def check_optimizer_device(optimizer, device_name='GPU'):
         for param in param_group['params']:
             param_device = param.device
             
-            # 检查优化器状态
-            param_id = id(param)
-            if param_id in optimizer.state:
-                state = optimizer.state[param_id]
-                for key, value in state.items():
-                    if isinstance(value, torch.Tensor):
-                        if value.device != param_device:
-                            issues.append(f"参数在 {param_device}，但状态'{key}'在 {value.device}")
+            # 检查优化器状态 - 直接遍历optimizer.state中的所有项
+            for state_param, state in optimizer.state.items():
+                # 检查这个状态是否属于当前参数
+                if state_param is param:
+                    for key, value in state.items():
+                        if isinstance(value, torch.Tensor):
+                            if value.device != param_device:
+                                issues.append(f"参数在 {param_device}，但状态'{key}'在 {value.device}")
+                    break
     
     if issues:
         print(f"✗ {optimizer.__class__.__name__} 有设备不匹配的问题:")
