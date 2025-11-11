@@ -12,8 +12,7 @@ from model.utils import *
 from model import metrics,dataloader,model
 from torch.utils.checkpoint import checkpoint as train_ck
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 model.device = device
