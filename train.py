@@ -111,6 +111,22 @@ def main():
     # Move to GPU, if available
     decoder = decoder.to(device)
     encoder = encoder.to(device)
+    
+    # 将优化器的状态也移到GPU上
+    # 这是必要的，因为优化器包含的状态张量（如momentum）也需要在正确的设备上
+    if checkpoint is not None:
+        # 只有从checkpoint加载时才需要这步，因为新创建的优化器已经自动在正确的设备上
+        for state in encoder_optimizer.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(device)
+        
+        for state in decoder_optimizer.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(device)
+        
+        logger.info(f"Optimizer states moved to {device}")
 
     # 使用交叉熵损失函数
     criterion = nn.CrossEntropyLoss().to(device)
