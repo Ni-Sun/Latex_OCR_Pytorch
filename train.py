@@ -155,14 +155,14 @@ def main():
         #每2个epoch衰减一次teahcer forcing的概率
         if p > 0.05:
             if (epoch % 3 == 0 and epoch != 0):
-                p *= 0.75
+                p *= 0.9
         else:
             p = 0
         logger.info(f'Start epoch: {epoch}, teacher forcing p: {p:.2f}')
 
         # 如果迭代4次后没有改善,则对学习率进行衰减,如果迭代20次都没有改善则触发早停.直到最大迭代次数
-        if epochs_since_improvement == 30:
-            logger.info("Early stopping triggered: 30 epochs without improvement")
+        if epochs_since_improvement == 70:
+            logger.info("Early stopping triggered: 70 epochs without improvement")
             break
         if epochs_since_improvement > 0 and epochs_since_improvement % 2 == 0:
             adjust_learning_rate(decoder_optimizer, 0.7)
